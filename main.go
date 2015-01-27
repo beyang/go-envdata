@@ -76,10 +76,10 @@ var defaults = map[string]string{%s}
 
 // Env returns the value of an environment variable if set. Otherwise, it returns the default value if it exists.
 func Env(name string) string {
-    if value := os.Getenv(name); value != "" {
-        return value
-    }
-    return defaults[name]
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return defaults[name]
 }
 `, defaultsMapExpr)
 	if err != nil {
