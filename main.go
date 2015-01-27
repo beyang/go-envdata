@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -18,8 +19,7 @@ type Config struct {
 	// working directory.
 	Output string
 
-	// Space separated list of environment variables NOT to capture. Defaults to
-	// some always-set ones like PWD that you probably don't want captured.
+	// Space separated list of environment variables NOT to capture.
 	Ignore string
 
 	// Generate a file that doesn't contain the current environment, but instead
@@ -31,11 +31,12 @@ type Config struct {
 	Dev bool
 }
 
+var alwaysIgnore = []string{"PWD", "SHLVL", "_"}
+
 func NewDefaultConfig() *Config {
 	return &Config{
 		Package: "main",
 		Output:  "./envdata.go",
-		Ignore:  "PWD SHLVL _",
 	}
 }
 
@@ -45,6 +46,8 @@ func parseArgs() *Config {
 	flag.StringVar(&c.Output, "o", c.Output, "Optional name of the output file to be generated.")
 	flag.StringVar(&c.Ignore, "ignore", c.Ignore, "Space separated list of environment variables to ignore.")
 	flag.BoolVar(&c.Dev, "dev", c.Dev, "Do not capture the environment, but instead generate a file that just reads from the runtime environment.")
+	flag.Parse()
+
 	return c
 }
 
@@ -61,6 +64,7 @@ func writeRelease(w io.Writer, env map[string]string) error {
 		for k, v := range env {
 			kvExprs = append(kvExprs, fmt.Sprintf("\t%q: %q,", k, v))
 		}
+		sort.Strings(kvExprs) // sort for stable ordering
 		defaultsMapExpr = "\n" + strings.Join(kvExprs, "\n") + "\n"
 	}
 
@@ -90,6 +94,9 @@ func Transcribe(c *Config) error {
 	ignore_ := strings.Fields(c.Ignore)
 	ignore := make(map[string]bool)
 	for _, ig := range ignore_ {
+		ignore[ig] = true
+	}
+	for _, ig := range alwaysIgnore {
 		ignore[ig] = true
 	}
 	env := make(map[string]string)
