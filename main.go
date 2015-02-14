@@ -73,6 +73,10 @@ import "os"
 var defaults = map[string]string{%s}
 
 func init() {
+	setDefaultEnv()
+}
+
+func setDefaultEnv() {
 	for k, v := range defaults {
 		if os.Getenv(k) == "" {
 			os.Setenv(k, v)
