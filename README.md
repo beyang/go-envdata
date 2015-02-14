@@ -3,7 +3,7 @@ go-envdata
 
 go-envdata packages environment variables into Go binaries. Inspired by [go-bindata](https://sourcegraph.com/github.com/jteeuwen/go-bindata).
 
-Currently tested with bash and *nix systems. YMMV with other shells/architectures.
+Tries to be shell/OS-agnostic, but currently tested with bash and *nix systems.
 
 Usage
 -----
@@ -13,7 +13,12 @@ Capture ambient environment:
 go-envdata -pkg env -o env/env.go
 ```
 
-Capture environment in a file:
+Capture environment defined by config file:
 ```
-env -i bash -c 'source ~/my-custom-config.sh; go-envdata;
+env -i PATH=$PATH bash -c 'source my-config.sh; go-envdata;
 ```
+or
+```
+env -i PATH=$PATH bash -c "./setup-environment.sh; go-envdata"
+```
+where `my-config.sh` and `setup-environment.sh` are files you define to setup the environment variables.

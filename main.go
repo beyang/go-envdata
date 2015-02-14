@@ -11,12 +11,11 @@ import (
 )
 
 type Config struct {
-	// Name of the package to use. Defaults to 'env'.
+	// Name of the package to use in generated code. Defaults to 'env'.
 	Package string
 
 	// Output defines the output file for the generated code.
-	// If left empty, this defaults to 'envdata.go' in the current
-	// working directory.
+	// If left empty, prints to stdout.
 	Output string
 
 	// Space separated list of environment variables NOT to capture.
@@ -26,12 +25,11 @@ type Config struct {
 	Dev bool
 }
 
-var alwaysIgnore = []string{"PWD", "SHLVL", "_"}
+var alwaysIgnore = []string{"PWD", "SHLVL", "_", "PATH"}
 
 func NewDefaultConfig() *Config {
 	return &Config{
 		Package: "env",
-		Output:  "./envdata.go",
 	}
 }
 
@@ -65,7 +63,9 @@ func writeRelease(w io.Writer, c *Config, env map[string]string) error {
 
 	_, err := fmt.Fprintf(w, `// Package %s sets default values for environment variables.
 // Usage: in any package that calls os.Getenv or references the environment, include:
+//
 //     import _ "full/path/to/%s"
+//
 package %s
 
 import "os"
@@ -107,19 +107,24 @@ func Transcribe(c *Config) error {
 	}
 
 	// Write file
-	fd, err := os.Create(c.Output)
-	if err != nil {
-		return nil
+	var out io.Writer
+	if c.Output == "" {
+		out = os.Stdout
+	} else {
+		fd, err := os.Create(c.Output)
+		if err != nil {
+			return nil
+		}
+		defer fd.Close()
+		bfd := bufio.NewWriter(fd)
+		defer bfd.Flush()
+		out = bfd
 	}
-	defer fd.Close()
-
-	bfd := bufio.NewWriter(fd)
-	defer bfd.Flush()
 
 	if c.Dev {
-		writeDev(bfd, c)
+		writeDev(out, c)
 	} else {
-		writeRelease(bfd, c, env)
+		writeRelease(out, c, env)
 	}
 	return nil
 }
