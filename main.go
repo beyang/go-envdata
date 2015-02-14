@@ -11,7 +11,7 @@ import (
 )
 
 type Config struct {
-	// Name of the package to use. Defaults to 'main'.
+	// Name of the package to use. Defaults to 'env'.
 	Package string
 
 	// Output defines the output file for the generated code.
@@ -22,12 +22,7 @@ type Config struct {
 	// Space separated list of environment variables NOT to capture.
 	Ignore string
 
-	// Generate a file that doesn't contain the current environment, but instead
-	// just returns the runtime environment variable values.
-	//
-	// Using this file is equivalent to using os.Getenv, but it conveniently has
-	// the same interface as the file generated in release mode, so your code
-	// doesn't have to change.
+	// Generate a file that doesn't set any default environment variables.
 	Dev bool
 }
 
@@ -35,7 +30,7 @@ var alwaysIgnore = []string{"PWD", "SHLVL", "_"}
 
 func NewDefaultConfig() *Config {
 	return &Config{
-		Package: "main",
+		Package: "env",
 		Output:  "./envdata.go",
 	}
 }
@@ -51,11 +46,11 @@ func parseArgs() *Config {
 	return c
 }
 
-func writeDev(w io.Writer) error {
-	return writeRelease(w, nil)
+func writeDev(w io.Writer, c *Config) error {
+	return writeRelease(w, c, nil)
 }
 
-func writeRelease(w io.Writer, env map[string]string) error {
+func writeRelease(w io.Writer, c *Config, env map[string]string) error {
 	var defaultsMapExpr string
 	if len(env) == 0 {
 		defaultsMapExpr = ""
@@ -68,20 +63,23 @@ func writeRelease(w io.Writer, env map[string]string) error {
 		defaultsMapExpr = "\n" + strings.Join(kvExprs, "\n") + "\n"
 	}
 
-	_, err := fmt.Fprintf(w, `package env
+	_, err := fmt.Fprintf(w, `// Package %s sets default values for environment variables.
+// Usage: in any package that calls os.Getenv or references the environment, include:
+//     import _ "full/path/to/%s"
+package %s
 
 import "os"
 
 var defaults = map[string]string{%s}
 
-// Env returns the value of an environment variable if set. Otherwise, it returns the default value if it exists.
-func Env(name string) string {
-	if value := os.Getenv(name); value != "" {
-		return value
+func init() {
+	for k, v := range defaults {
+		if os.Getenv(k) == "" {
+			os.Setenv(k, v)
+		}
 	}
-	return defaults[name]
 }
-`, defaultsMapExpr)
+`, c.Package, c.Package, c.Package, defaultsMapExpr)
 	if err != nil {
 		return err
 	}
@@ -119,9 +117,9 @@ func Transcribe(c *Config) error {
 	defer bfd.Flush()
 
 	if c.Dev {
-		writeDev(bfd)
+		writeDev(bfd, c)
 	} else {
-		writeRelease(bfd, env)
+		writeRelease(bfd, c, env)
 	}
 	return nil
 }
